@@ -1,0 +1,22 @@
+{
+  "name": "同桌 · 两个人的自习室",
+  "short_name": "同桌",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f4ee",
+  "theme_color": "#263b31",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
