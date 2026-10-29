@@ -13,6 +13,7 @@ const stamp=(n:number)=>new Date(n).toLocaleTimeString('zh-CN',{hour:'2-digit',m
 const timer=(n:number)=>`${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toString().padStart(2,'0')}`;
 export default function Home(){
  const [identity,setIdentity]=useState<Identity|null>(null),[data,setData]=useState<State|null>(null);
+ const [peerMode,setPeerMode]=useState(false);
  const [ready,setReady]=useState(false),[connected,setConnected]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[toast,setToast]=useState('');
  const [now,setNow]=useState(Date.now()),[offset,setOffset]=useState(0),[tab,setTab]=useState('room'),[immersive,setImmersive]=useState(false);
  const [modal,setModal]=useState(''),[name,setName]=useState(''),[joinCode,setJoinCode]=useState(''),[taskInput,setTaskInput]=useState(''),[messageInput,setMessageInput]=useState('');
@@ -35,6 +36,7 @@ export default function Home(){
   return()=>{clearTimeout(initial);document.body.style.overflow=previousOverflow;document.removeEventListener('keydown',onKey);prior?.focus();};
  },[modal]);
  useEffect(()=>{
+  setPeerMode(!!(window as any).__TONGZHUO_PEER__);
   const code=new URLSearchParams(window.location.search).get('room')||'';
   let saved:Identity|null=null;try{const last=code||localStorage.getItem('tongzhuo:last');if(last){const t=localStorage.getItem(`tongzhuo:${last}`);if(t)saved={code:last,token:t};} setScene(localStorage.getItem('tongzhuo:scene')||'library');setName(localStorage.getItem('tongzhuo:name')||'');}catch{}
   if(saved){setIdentity(saved);window.history.replaceState(null,'',`?room=${saved.code}`);}else if(code){setJoinCode(code);setModal('join');}
@@ -70,7 +72,7 @@ export default function Home(){
    setData(null);setConnected(false);setIdentity(next);window.history.replaceState(null,'',`?room=${next.code}`);setModal(action==='create'?'invite':'');notify(action==='create'?'自习室准备好了，把另一个座位留给 TA。':'欢迎入座，今天也一起加油。');
   }catch(e){setError(e instanceof Error?e.message:'连接失败，请稍后重试');}finally{setBusy(false);}
  };
- const copy=async()=>{if(!identity){setModal('create');return;}try{await navigator.clipboard.writeText(`${window.location.origin}/?room=${identity.code}`);setCopied(true);notify('邀请链接已复制，发给你的学习搭子吧');setTimeout(()=>setCopied(false),2500);}catch{setModal('invite');setError('请长按或选中链接复制');}};
+ const copy=async()=>{if(!identity){setModal('create');return;}try{await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${identity.code}`);setCopied(true);notify('邀请链接已复制，发给你的学习搭子吧');setTimeout(()=>setCopied(false),2500);}catch{setModal('invite');setError('请长按或选中链接复制');}};
  const changeSound=async(kind:string)=>{
   if(audio.current){await audio.current.context.close();audio.current=null;}
   if(kind==='off'){setSound('off');return;}
@@ -81,7 +83,7 @@ export default function Home(){
  };
  const switchScene=(s:string)=>{setScene(s);localStorage.setItem('tongzhuo:scene',s);};
  const changeTimer=(action:string,extra:Record<string,unknown>={})=>{if(running){setModal('confirm:'+action+':'+(extra.duration||extra.phase||''));return;}post(action,extra);};
- const leave=()=>{setIdentity(null);setData(null);setConnected(false);localStorage.removeItem('tongzhuo:last');window.history.replaceState(null,'','/');setModal('');notify('已回到大厅，原邀请链接仍可找回座位');};
+ const leave=()=>{setIdentity(null);setData(null);setConnected(false);localStorage.removeItem('tongzhuo:last');window.history.replaceState(null,'',window.location.pathname);setModal('');notify('已回到大厅，原邀请链接仍可找回座位');};
  const members=data?.members||[],me=data?.me||1,partner=members.find(m=>m.slot!==me);
  const tasks=data?.tasks||[],messages=data?.messages||[],sessions=data?.sessions||[];
  const todaySessions=sessions.filter(s=>day(s.created_at)===day(now));
@@ -128,8 +130,8 @@ export default function Home(){
   </main>
   {toast&&<div className="toast" role="status"><Check size={16}/>{toast}</div>}
   {modal&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&!busy)setModal('')}}><section className="modal" role="dialog" aria-modal="true" aria-label="自习室设置"><button className="modal-close" aria-label="关闭" onClick={()=>{setModal('');setError('')}}><X size={20}/></button>
-   {(modal==='create'||modal==='join')&&<><span className="modal-icon"><Armchair size={29}/></span><div className="eyebrow">A ROOM FOR YOU TWO</div><h2>{modal==='create'?'留个座位，一起学习。':'你的同桌，正在等你。'}</h2><p>{modal==='create'?'创建你们的小小自习室，把邀请链接发给 TA。':'加入同一间房，把距离留给地图。'}</p><form onSubmit={e=>{e.preventDefault();enter()}}><label>怎么称呼你？<input autoFocus maxLength={12} placeholder="给自己起个昵称" value={name} onChange={e=>setName(e.target.value)}/></label>{modal==='join'&&<label>邀请链接或房间码<input required value={joinCode} onChange={e=>setJoinCode(e.target.value)} placeholder="粘贴搭子发来的邀请链接"/></label>}{error&&<p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy}>{busy?<Loader2 className="spin" size={17}/>:modal==='create'?'创建我们的自习室':'入座，开始陪伴'}{!busy&&<ArrowRight size={17}/>}</button></form><button className="text-button" onClick={()=>{setError('');setModal(modal==='create'?'join':'create')}}>{modal==='create'?'已经有邀请链接？加入房间':'想开一间新的？创建房间'}<ChevronRight size={13}/></button><small className="modal-tip">仅有两个座位 · 无需注册 · 请保留原浏览器的座位记录</small></>}
-   {modal==='invite'&&<><span className="modal-icon"><Users size={28}/></span><h2>另一个座位，留给 TA。</h2><p>把链接发给学习搭子，即可进入同一间自习室。</p><div className="invite-preview"><Armchair/><span className="dashed-line"/><Heart size={17}/><span className="dashed-line"/><Armchair/></div><input className="invite-link" readOnly onFocus={e=>e.target.select()} value={ready&&identity?`${window.location.origin}/?room=${identity.code}`:''} aria-label="邀请链接"/><button className="primary" onClick={copy}>{copied?<Check size={17}/>:<Copy size={17}/>} {copied?'复制好了':'复制邀请链接'}</button>{error&&<p className="error">{error}</p>}<small className="modal-tip">拿到链接的人可以占用空座位，请只分享给你的搭子。<br/>座位会保存在当前浏览器，清除浏览器数据后无法自动找回。</small></>}
+   {(modal==='create'||modal==='join')&&<><span className="modal-icon"><Armchair size={29}/></span><div className="eyebrow">A ROOM FOR YOU TWO</div><h2>{modal==='create'?'留个座位，一起学习。':'你的同桌，正在等你。'}</h2><p>{modal==='create'?'创建你们的小小自习室，把邀请链接发给 TA。':'加入同一间房，把距离留给地图。'}</p><form onSubmit={e=>{e.preventDefault();enter()}}><label>怎么称呼你？<input autoFocus maxLength={12} placeholder="给自己起个昵称" value={name} onChange={e=>setName(e.target.value)}/></label>{modal==='join'&&<label>邀请链接或房间码<input required value={joinCode} onChange={e=>setJoinCode(e.target.value)} placeholder="粘贴搭子发来的邀请链接"/></label>}{error&&<p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy}>{busy?<Loader2 className="spin" size={17}/>:modal==='create'?'创建我们的自习室':'入座，开始陪伴'}{!busy&&<ArrowRight size={17}/>}</button></form><button className="text-button" onClick={()=>{setError('');setModal(modal==='create'?'join':'create')}}>{modal==='create'?'已经有邀请链接？加入房间':'想开一间新的？创建房间'}<ChevronRight size={13}/></button><small className="modal-tip">{peerMode?"双人直连 · 房主需保持此页面打开 · 记录保存在本机":"仅有两个座位 · 无需注册 · 请保留原浏览器的座位记录"}</small></>}
+   {modal==='invite'&&<><span className="modal-icon"><Users size={28}/></span><h2>另一个座位，留给 TA。</h2><p>把链接发给学习搭子，即可进入同一间自习室。</p><div className="invite-preview"><Armchair/><span className="dashed-line"/><Heart size={17}/><span className="dashed-line"/><Armchair/></div><input className="invite-link" readOnly onFocus={e=>e.target.select()} value={ready&&identity?`${window.location.origin}${window.location.pathname}?room=${identity.code}`:''} aria-label="邀请链接"/><button className="primary" onClick={copy}>{copied?<Check size={17}/>:<Copy size={17}/>} {copied?'复制好了':'复制邀请链接'}</button>{error&&<p className="error">{error}</p>}<small className="modal-tip">拿到链接的人可以占用空座位，请只分享给你的搭子。<br/>{peerMode?"房主请保持页面打开，搭子才能连接。记录保存在本机，清除浏览器数据会丢失。":"座位会保存在当前浏览器，清除浏览器数据后无法自动找回。"}</small></>}
    {modal==='duration'&&<><span className="modal-icon"><Clock3 size={28}/></span><h2>给这段专注，一点时间。</h2><p>选择适合你们的节奏，修改后同步到双方。</p><div className="duration-options">{[25,50,90].map(n=><button key={n} className={data?.room.duration===n*60?'chosen':''} disabled={busy} onClick={()=>{setModal('');changeTimer('duration',{duration:n*60})}}><strong>{n}</strong><span>分钟</span></button>)}</div><small className="modal-tip">切换时长会重新计时；建议先和搭子说一声。</small></>}
    {modal==='scene'&&<><span className="modal-icon"><Moon size={28}/></span><h2>换个地方，继续热爱。</h2><p>只改变你的场景，不打扰搭子的选择。</p><div className="scene-options">{[['library','日落图书馆','温暖的书架，刚好的安静'],['rain','窗边听雨','雨幕轻落，隔开一点喧嚣'],['night','午夜书房','夜色渐深，心渐渐安静']].map(([s,t,d])=><button key={s} className={scene===s?'chosen':''} onClick={()=>{switchScene(s);setModal('')}}><span className={`scene-thumb scene-${s}`}/><span><b>{t}</b><small>{d}</small></span>{scene===s?<Check size={18}/>:<ChevronRight size={18}/>}</button>)}</div></>}
    {modal==='settings'&&<><span className="modal-icon"><Settings2 size={28}/></span><h2>我的小小空间</h2><p>保存好邀请链接，随时回来找你的同桌。</p><label>我的昵称<input value={name} maxLength={12} onChange={e=>setName(e.target.value)}/></label><button className="primary" disabled={!name.trim()||busy} onClick={async()=>{if(identity){if(await post('name',{name})){localStorage.setItem('tongzhuo:name',name);setModal('');notify('昵称已更新');}}else{localStorage.setItem('tongzhuo:name',name);setModal('')}}}>保存昵称<Check size={16}/></button><div className="settings-links"><button onClick={()=>setModal('scene')}><Moon size={17}/>选择自习场景<ChevronRight size={16}/></button><button onClick={()=>{setModal('');setImmersive(!immersive)}}><Maximize2 size={17}/>切换沉浸模式<ChevronRight size={16}/></button>{identity&&<><button onClick={()=>setModal('invite')}><Link2 size={17}/>查看邀请链接<ChevronRight size={16}/></button><button onClick={()=>setModal('leave')}><DoorOpen size={17}/>回到大厅<ChevronRight size={16}/></button></>}</div><small className="modal-tip">手机浏览器菜单中选择「添加到主屏幕」，<br/>下次就可以像 App 一样打开。</small></>}
@@ -138,4 +140,5 @@ export default function Home(){
   </section></div>}
  </div>;
 }
+
 
