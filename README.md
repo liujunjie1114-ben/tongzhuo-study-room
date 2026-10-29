@@ -2,7 +2,7 @@
 
 隔着距离，也能并肩。为两位异地学习搭子制作的沉浸式网页 App。
 
-**在线使用：** https://tongzhuo-study-room.shuizhuzaocha.chatgpt.site
+支持独立部署到 Vercel；访客无需 ChatGPT 账号。原 Sites 演示地址不作为独立版入口。
 
 ## 怎么使用
 
@@ -47,6 +47,27 @@ npm run dev
 
 打开终端显示的 Local 地址。两位访客需要不同浏览器配置或无痕窗口来模拟两个身份。`127.0.0.1` 只能在自己的电脑上使用，异地访问请部署公网服务。
 
+## 独立部署到 Vercel（无需 ChatGPT）
+
+独立版使用相同的 React 界面、Vercel Functions 与私有 Vercel Blob 存储，前后端都不依赖 ChatGPT / Sites 服务。
+
+1. 将本仓库导入 Vercel；`vercel.json` 已配置 `npm run build:public` 和 `web-dist`。
+2. 在同一项目内创建 **Private Blob** 存储，并连接到该项目的 Production 环境。保留自动配置的 `BLOB_READ_WRITE_TOKEN`，不要放进源码或前端变量。
+3. 将正式网站的 Deployment Protection 关闭，确保访客不需要 Vercel 账号。
+4. 部署 Production 后，使用返回的 `vercel.app` 链接创建房间并邀请搭子。
+
+`web/main.tsx` 是独立版浏览器入口；`api/room.ts` 提供公开接口并检查座位凭证；`server/room-store.ts` 实现房间数据与并发控制。私有存储读取使用 `useCache: false`，写入通过 ETag 条件检查，避免两个人同时操作覆盖进度或重复占座。前端沿用每 4 秒同步。
+
+本地构建与存储逻辑验证：
+
+```powershell
+npm install
+npm run build:public
+node --experimental-test-module-mocks --test tests/room-store.test.mjs
+```
+
+测试覆盖同时抢占第二座位、无凭证访问、任务归属、留言与计时同步、并发结束计时的唯一记账。测试使用内存模拟存储，不需要线上存储密钥。`npm run dev:public` 可预览独立版界面；本地测试实际云端同步接口应使用已连接环境变量的 Vercel 开发环境。
+
 ## 自行部署到 Cloudflare
 
 线上数据和本地测试数据库彼此独立。使用你自己的 Cloudflare 账号和数据库，不需要使用演示站的身份或数据。
@@ -89,3 +110,4 @@ API 在服务端检查座位身份；一个房间最多两个固定座位，任�
 ## 许可与素材
 
 原创应用代码采用 MIT 许可证。依赖和保留的第三方构建脚本遵循各自许可证。背景照片来自 Unsplash（图片资源：https://images.unsplash.com/photo-1507842217343-583bb7270b66），不纳入原创代码 MIT 授权范围。
+
